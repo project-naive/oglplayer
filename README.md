@@ -16,9 +16,9 @@ frame onto the display directly. Tackling the platform details of interoperation
 will be the other major thing and is what inspired this project.(For example, nv_dx_interop2
 can share a ID3D11Texture2D with opengl TEXTURE_2D). FFmpeg by default transfers the decoded
 frame back to the CPU memory, which takes up bandwidth (typically a few MB per frame, 30 frames
-per second at least, which amounts to somewhere near 1GB/s with upload speed), thus only better
-than using software decoder when the codec is extremely computation-bound and paralled, since
-rendering back to the screen would again take so much bandwidth.
+per second at least, which amounts to somewhere near 1GB/s with upload speed), and rendering
+back to the screen would again take so much bandwidth, thus only better than using software
+decoder when the codec is extremely computation-bound and paralled, 
 
 ## Limitations
 
