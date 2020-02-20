@@ -1,0 +1,107 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="oglplayer">
+      <UniqueIdentifier>{6243be6f-c985-4724-afae-57af78c2dc65}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libsoundio">
+      <UniqueIdentifier>{dad6e149-bd00-4dbc-9464-280b6b9091dd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Audio.cpp">
+      <Filter>oglplayer</Filter>
+    </ClCompile>
+    <ClCompile Include="common.cpp">
+      <Filter>oglplayer</Filter>
+    </ClCompile>
+    <ClCompile Include="Decode.cpp">
+      <Filter>oglplayer</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>oglplayer</Filter>
+    </ClCompile>
+    <ClCompile Include="Render.cpp">
+      <Filter>oglplayer</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\channel_layout.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\dummy.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\os.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\ring_buffer.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\soundio.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\util.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+    <ClCompile Include="libsoundio\src\wasapi.c">
+      <Filter>libsoundio</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Audio.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="Decode.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="Objects.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="Render.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="ThreadDefine.h">
+      <Filter>oglplayer</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\atomics.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\config.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\dummy.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\list.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\os.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\ring_buffer.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\soundio_internal.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\soundio_private.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\util.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+    <ClInclude Include="libsoundio\src\wasapi.h">
+      <Filter>libsoundio</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ThreadDefine.inl">
+      <Filter>oglplayer</Filter>
+    </None>
+    <None Include="libsoundio\src\config.h.in">
+      <Filter>libsoundio</Filter>
+    </None>
+  </ItemGroup>
+</Project>
