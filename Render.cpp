@@ -116,6 +116,20 @@ void DeleteVertexBuffer(render_objects& objects)
 
 void InitGraphics(int width, int height, render_objects& objects)
 {
+	const char* vendor = (const char*)glGetString(GL_VENDOR);
+	if (!strcmp(vendor, "Intel")) {
+		objects.upload_need_flush = true;
+	}
+	if (!strcmp(vendor, "NVIDIA Corporation")) {
+		objects.upload_need_flush = false;
+	}
+	else {
+		objects.upload_need_flush = true;
+	}
+	std::cout << glGetString(GL_VENDOR) << '\n';
+	std::cout << glGetString(GL_RENDERER) << '\n';
+	std::cout << glGetString(GL_VERSION) << '\n';
+	std::cout << glGetString(GL_EXTENSIONS) << '\n';
 	CreateGLProgram(objects);
 	CreateGLTexture(objects, width, height);
 	CreateVertexBuffer(objects);
@@ -128,7 +142,7 @@ void DeInitGraphics(render_objects& objects)
 	DeleteProgram(objects);
 }
 
-void RenderFrame(SDL_Window* window, render_objects& glo, int index, int width, int height)
+void RenderFrame()
 {
 	glClear(GL_COLOR_BUFFER_BIT);
 	//Use bindless texture here to improve performance
@@ -144,21 +158,18 @@ void RenderThread::RenderProc()
 	InitGraphics(dec_width, dec_height, glo);
 	gl_inited = true;
 	cond.notify_one();
-	double time_till_next_update = 0;
-	double last_frame_time=0;
 	int pts_increment = 0;
-	int64_t last_pts=0;
-	int64_t last_last_pts = 0;
-	timer timer;
-	timer.reset();
+	timer frame_timer;
+	frame_timer.reset();
 	render_objects::Frame frame{};
+	double frame_time = 0;
+	double loop_time = 0;
 	while (running && (decoding || glo.frame_in_queue.peek())) {
 		{
 			lock_guard<> lck(state.render_mutex);
-			time_till_next_update -= 0.1 * last_frame_time;
-			if(time_till_next_update<0.003)
-				time_till_next_update = 0;
-			state.vframe_cond.wait_for(lck, time_till_next_update);
+			if(frame_time - loop_time >0.003)
+				//time_till_next_update = 0;
+			state.vframe_cond.wait_for(lck, (frame_time-loop_time));
 		}
 		bool resized = true;
 		if (size_changed.compare_exchange_weak(resized, false, std::memory_order_acquire, std::memory_order_relaxed)) {
@@ -174,22 +185,22 @@ void RenderThread::RenderProc()
 			viewporty = (height - view_height) / 2;
 			glViewport(viewportx, viewporty, view_width, view_height);
 		}
-		last_last_pts = last_pts;
-		last_pts = frame.pts;
 		bool dropped=false;
-		pts_increment = GoToCurrentTexture(state.v_state.multiple_buffer*last_frame_time*1.5,frame, dropped);
+		if (glo.frame_in_queue.peek())
+			frame_time = double((glo.frame_in_queue.peek()->pts - frame.pts) * state.v_state.time_base.num) / state.v_state.time_base.den;
+		pts_increment = GoToCurrentTexture(frame_time*(1+state.v_state.multiple_buffer*1.5) +frame_timer.time(),frame, dropped);
 		if (pts_increment) {
-			RenderFrame(window, glo, pts_increment, dec_width, dec_height);
+			RenderFrame();
 			SDL_GL_SwapWindow(window);
-			prev_increment = pts_increment;
 		}
-		last_frame_time = timer.time();
-		if(glo.frame_in_queue.peek() && audio_running)
-			time_till_next_update = (double(glo.frame_in_queue.peek()->pts-frame.pts)*(1+bool(pts_increment))/2*state.v_state.time_base.num/ state.v_state.time_base.den)
-									- last_frame_time-last_frame_time*dropped;
-		else		
-			time_till_next_update = time_till_next_update/2;
-		timer.reset();
+		if (pts_increment) {
+			if(glo.frame_in_queue.peek())
+				frame_time = double((glo.frame_in_queue.peek()->pts-frame.pts)*state.v_state.time_base.num)/state.v_state.time_base.den;
+			else frame_time = 0;
+			loop_time = frame_timer.time();
+			frame_timer.reset();
+		}
+		loop_time = frame_timer.time();
 	}
 	running = false;
 	//deinit graphics
@@ -215,10 +226,6 @@ int RenderThread::GoToCurrentTexture(double last_update_time, render_objects::Fr
 		lock_guard<> lck(state.render_mutex);
 		state.decode_cond.wait(lck);
 	};
-/*	while (glo.ptss[frame_state.render_pos % FRAME_BUFF_NUM] - state.s_state.cur_pts > 800 && running && audio_running) {
-		lock_guard<> lck(state.wait_audio_mtx);
-		state.wait_audio_cond.wait(lck);
-	}*/
 	bool already_skipped = false;
 	int increment_pts = 0;
 	//See if going on is needed here
@@ -232,61 +239,27 @@ int RenderThread::GoToCurrentTexture(double last_update_time, render_objects::Fr
 		if (!GoToNextFrame(double(prev_frame.pts- video_start_pts)*state.v_state.time_base.num/state.v_state.time_base.den, 
 			double(glo.frame_in_queue.peek()->pts - video_start_pts) * state.v_state.time_base.num / state.v_state.time_base.den,
 			double(state.s_state.cur_pts- audio_start_pts) * state.s_state.time_base.num / state.s_state.time_base.den
-			+ (state.v_state.latency + state.v_state.multiple_buffer * last_update_time), already_skipped)) {
+			+ last_update_time, already_skipped)) {
 			glBindTexture(GL_TEXTURE_2D, prev_frame.texture);
 			return increment_pts;
 		}
 		else {
-			if(prev_frame.pbo)
-				glo.frame_out_queue.enqueue(prev_frame);
-			if (increment_pts) {
-				dropped = true;
-				fprintf(stderr, "Video frame dropped!\n");
-			}
-			increment_pts += glo.frame_in_queue.peek()->pts-prev_frame.pts;
-			glo.frame_in_queue.try_dequeue(prev_frame);
 			if (prev_frame.sync) {
+			//	glClientWaitSync(prev_frame.sync,GL_SYNC_FLUSH_COMMANDS_BIT, GL_TIMEOUT_IGNORED);
 				glWaitSync(prev_frame.sync, 0, GL_TIMEOUT_IGNORED);
 				glDeleteSync(prev_frame.sync);
 				prev_frame.sync = 0;
 			}
+			if (increment_pts) {
+				dropped = true;
+				fprintf(stderr, "Video frame dropped!\n");
+			}
+			increment_pts += glo.frame_in_queue.peek()->pts - prev_frame.pts;
+			if(prev_frame.pbo)
+				glo.frame_out_queue.enqueue(prev_frame);
+			glo.frame_in_queue.try_dequeue(prev_frame);
 			state.render_cond.notify_one();
 			continue;
 		}
 	}
-	/*}
-		if (!glo.frame_in_queue.peek()) {
-			if (frame.sync) {
-				glWaitSync(frame.sync,GL_SYNC_GPU_COMMANDS_COMPLETE,GL_TIMEOUT_IGNORED);
-				glDeleteSync(frame.sync);
-				frame.sync = 0;
-			}
-			return frame.texture;
-		}
-		if (GoToNextFrame(glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].pts, 
-				glo.frames[(frame_state.render_pos + 1) % FRAME_BUFF_NUM].pts,
-				state.s_state.cur_pts + (state.v_state.latency+state.v_state.multiple_buffer*last_update_time), already_skipped)) {
-			if (glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync) {
-	//			glBindTexture(GL_TEXTURE_2D, glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].texture);
-	//			glWaitSync(glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync, 0, GL_TIMEOUT_IGNORED);
-				glDeleteSync(glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync);
-				glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync = 0;
-				std::cout << "Video Frame Dropped!\n";
-			}
-			already_skipped = true;
-			++frame_state.render_pos;
-			state.render_cond.notify_one();
-		}
-		else {
-			if (glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync) {
-				glBindTexture(GL_TEXTURE_2D, glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].texture);
-				glWaitSync(glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync, 0, GL_TIMEOUT_IGNORED);
-				glDeleteSync(glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync);
-				glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].sync = 0;
-			}
-			break;
-		}
-	}
-	frame_state.render_pts = glo.frames[frame_state.render_pos % FRAME_BUFF_NUM].pts;
-	return frame_state.render_pos.load() % FRAME_BUFF_NUM;*/
 }

@@ -120,6 +120,7 @@ struct render_objects {
 		GLuint texture;
 		GLsync sync;
 		int64_t pts;
+		uint8_t* map;
 	};
 //	Frame frames[FRAME_BUFF_NUM];
 	moodycamel::ReaderWriterQueue<Frame> frame_in_queue;
@@ -133,6 +134,9 @@ struct render_objects {
 	GLuint vshader, fshader;
 	GLint index_location, texture_location;
 	GLuint vao, vbo;
+	//NV does not need flush
+	//and will give 20% less utilization
+	bool upload_need_flush;
 };
 
 

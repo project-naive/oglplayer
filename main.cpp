@@ -145,8 +145,8 @@ int main(int argc, char* argv[]) {
 	s_state.samples_read=0;
 	s_state.audio_ready = false;
 	audio_running = true;
-	if(argc<2) return 0;
-//	argv[1]=const_cast<char*>("D:\\GamePlatforms\\Steam\\steamapps\\common\\Neptunia Rebirth1\\data\\MOVIE00000\\movie\\game_op.mkv");
+//	if(argc<2) return 0;
+	argv[1]=const_cast<char*>("D:\\GamePlatforms\\Steam\\steamapps\\common\\Neptunia Rebirth1\\data\\MOVIE00000\\movie\\game_op.mkv");
 //	argv[1]= const_cast<char*>("C:\\Users\\shang\\Videos\\Captures\\BlueStacks App Player 2020-01-12 19-36-46.mp4");
 	av_log_set_level(AV_LOG_ERROR);
 	av_log_set_callback(my_log_callback);

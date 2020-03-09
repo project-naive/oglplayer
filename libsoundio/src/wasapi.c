@@ -1229,6 +1229,8 @@ static void outstream_thread_deinit(struct SoundIoPrivate *si, struct SoundIoOut
         IUnknown_Release(osw->audio_clock_adjustment);
     if (osw->audio_client)
         IUnknown_Release(osw->audio_client);
+    if(osw->iclock)
+        IUnknown_Release(osw->iclock);
 }
 
 static void outstream_destroy_wasapi(struct SoundIoPrivate *si, struct SoundIoOutStreamPrivate *os) {

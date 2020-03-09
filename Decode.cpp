@@ -93,7 +93,7 @@ static inline int DecodeFrameToPBO(AVCodecContext* codec_ctx, SwsContext* sws_ct
 		std::cout << "Error!\n";
 		return err;
 	}
-	printf("Video frame pts: %d\tBest effort:%d\tpkt_dts:%d\n",frame->pts,frame->best_effort_timestamp,frame->pkt_dts);
+//	printf("Video frame pts: %d\tBest effort:%d\tpkt_dts:%d\n",frame->pts,frame->best_effort_timestamp,frame->pkt_dts);
 	render_objects::Frame glframe;
 	int width = codec_ctx->width;
 	int height = codec_ctx->height;
@@ -107,11 +107,17 @@ static inline int DecodeFrameToPBO(AVCodecContext* codec_ctx, SwsContext* sws_ct
 		glTextureParameteri(glframe.texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTextureParameteri(glframe.texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTextureStorage2D(glframe.texture, 1, GL_RGBA8, width, height);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glframe.pbo);
+		glBufferStorage(GL_PIXEL_UNPACK_BUFFER, int64_t(4) * width * height,0,GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+		glframe.map = (uint8_t*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0, int64_t(4) * width * height,  GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT | GL_MAP_FLUSH_EXPLICIT_BIT | GL_MAP_PERSISTENT_BIT);
+	}
+	else {
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, glframe.pbo);
 	}
 	int linesize[] = {width * 4};
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER,glframe.pbo);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, int64_t(4) * width * height,nullptr,GL_STREAM_DRAW);
-	uint8_t* ptrs[] = {(uint8_t*)glMapBufferRange(GL_PIXEL_UNPACK_BUFFER, 0,int64_t(4)*width*height,GL_MAP_INVALIDATE_BUFFER_BIT|GL_MAP_WRITE_BIT|GL_MAP_UNSYNCHRONIZED_BIT)};
+	
+//	glBufferData(GL_PIXEL_UNPACK_BUFFER, int64_t(4) * width * height,nullptr,GL_STREAM_DRAW);
+	uint8_t* ptrs[] = {glframe.map};
 	sws_scale(  // [16]
 		sws_ctx,
 		frame->data,
@@ -123,12 +129,18 @@ static inline int DecodeFrameToPBO(AVCodecContext* codec_ctx, SwsContext* sws_ct
 		//rgb has only one plane
 		linesize
 	);
-	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+	glFlushMappedBufferRange(GL_PIXEL_UNPACK_BUFFER,0, int64_t(4) * width * height);
 	glBindTexture(GL_TEXTURE_2D,glframe.texture);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (void*)(0));
 	glframe.pts = frame->pts;
 	glframe.sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-	glFlush();
+	//intel without this will cause server hang
+	//nvidia with this will not use copy engine (1-2% gpu usage up as tested)
+//	glFlush();
+//	glFlush();
+	if (glo.upload_need_flush) {
+		glFlush();
+	}
 	glo.frame_in_queue.enqueue(glframe);
 	return err;
 }
@@ -179,7 +191,7 @@ static inline int send_audio_frame(AVFrame* aframe, AVFrame*& asend, SwrContext*
 			lock_guard<> lck(state.s_state.in_queue_mtx);
 			state.s_state.in_queue_cond.wait(lck);
 		}
-		printf("Audio frame pts: %d\tBest effort:%d\tpkt_dts:%d\n", asend->pts, asend->best_effort_timestamp,asend->pkt_dts);
+//		printf("Audio frame pts: %d\tBest effort:%d\tpkt_dts:%d\n", asend->pts, asend->best_effort_timestamp,asend->pkt_dts);
 		asend = nullptr;
 		state.s_state.audio_ready = true;
 	}
